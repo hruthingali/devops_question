@@ -1,9 +1,12 @@
 pipeline {
     agent any
+    environment {
+        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'
+    }
     stages {
-        stage('Clone Repository') {
+        stage('Checkout Code') {
             steps {
-                git 'https://github.com/hruthingali/devops_question.git'
+                git branch: 'main', url: 'https://github.com/hruthingali/devops_question.git'
             }
         }
         stage('Build Docker Image') {
@@ -11,16 +14,20 @@ pipeline {
                 sh 'docker build -t hruthingali/helloworld-java .'
             }
         }
-        stage('Push Docker Image') {
+        stage('Push to DockerHub') {
             steps {
-                sh 'docker login -u hruthingali -p YOUR_PASSWORD'
-                sh 'docker push hruthingali/helloworld-java'
+                withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    docker push hruthingali/helloworld-java
+                    '''
+                }
             }
         }
         stage('Deploy to Kubernetes') {
             steps {
-                sh 'kubectl apply -f deployment.yaml'
-                sh 'kubectl apply -f service.yaml'
+                sh 'kubectl apply -f deployment.yml'
+                sh 'kubectl apply -f service.yml'
             }
         }
     }
